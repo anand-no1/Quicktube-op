@@ -1,3 +1,5 @@
 Flask==2.3.3
-yt-dlp==2024.4.9
+yt-dlp==2024.3.10
 gunicorn==21.2.0
+
+# Note: ffmpeg must be installed separately (handled in render.yaml)
