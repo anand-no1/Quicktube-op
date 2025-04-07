@@ -1,58 +1,76 @@
-from flask import Flask, request, send_file, jsonify, render_template
-import yt_dlp
+from flask import Flask, request, jsonify, send_file
+import subprocess
 import os
 import uuid
 
 app = Flask(__name__)
 
-DOWNLOAD_DIR = "downloads"
-if not os.path.exists(DOWNLOAD_DIR):
-    os.makedirs(DOWNLOAD_DIR)
+DOWNLOAD_FOLDER = "downloads"
+COOKIES_FILE = "cookies.txt"
+os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
-# Path to cookies.txt (make sure it's inside the same folder as this script or project root)
-cookies_path = os.path.join(os.path.dirname(__file__), "cookies.txt")
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+def get_output_path(extension):
+    return os.path.join(DOWNLOAD_FOLDER, f"{uuid.uuid4()}.{extension}")
 
-@app.route("/download", methods=["POST"])
+
+@app.route('/download', methods=['POST'])
 def download_video():
-    data = request.get_json()
+    data = request.json
     url = data.get("url")
-    format_type = data.get("format")
+    format_type = data.get("format", "mp4")
 
-    if not url or not format_type:
-        return jsonify({"error": "Missing URL or format"}), 400
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
 
-    temp_id = str(uuid.uuid4())
-    output_path = os.path.join(DOWNLOAD_DIR, f"{temp_id}.%(ext)s")
+    ext = "mp4" if format_type in ["mp4", "720p", "480p"] else "mp3"
+    output_path = get_output_path(ext)
 
-    ydl_opts = {
-        "outtmpl": output_path,
-        "quiet": True,
-        "cookiefile": cookies_path,  # Use cookies to bypass login restrictions
-        "noplaylist": True,
-        "merge_output_format": "mp3" if format_type == "mp3" else "mp4",
-    }
+    format_selector = "bestvideo[height<=720]+bestaudio/best[height<=720]" if ext == "mp4" else "bestaudio"
+    command = [
+        "yt-dlp",
+        "-f", format_selector,
+        "-o", output_path,
+        "--merge-output-format", ext,
+        "--no-playlist",
+        "--user-agent", "Mozilla/5.0",
+        "--geo-bypass",
+        "--no-cache-dir"
+    ]
 
-    if format_type.endswith("p"):  # e.g., 720p, 360p
-        ydl_opts["format"] = f"bestvideo[height<={format_type[:-1]}]+bestaudio/best"
-    else:
-        ydl_opts["format"] = "bestaudio/best"
+    if os.path.exists(COOKIES_FILE):
+        command += ["--cookies", COOKIES_FILE]
+
+    command.append(url)
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            ext = "mp3" if format_type == "mp3" else "mp4"
-            filename = ydl.prepare_filename(info)
-            final_file = filename.replace(".webm", f".{ext}").replace(".m4a", f".{ext}")
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        print("YT-DLP STDOUT:", result.stdout)
+        print("YT-DLP STDERR:", result.stderr)
+        return send_file(output_path, as_attachment=True)
+    except subprocess.CalledProcessError as e:
+        print("YT-DLP FAILED:", e.stderr)
+        return jsonify({"error": "Download failed", "details": e.stderr}), 500
 
-        return send_file(final_file, as_attachment=True)
 
-    except Exception as e:
-        print("Error:", e)
-        return jsonify({"error": "Download failed"}), 500
+@app.route('/formats', methods=['POST'])
+def list_formats():
+    data = request.json
+    url = data.get("url")
 
-if __name__ == "__main__":
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+
+    command = ["yt-dlp", "--list-formats", url]
+    if os.path.exists(COOKIES_FILE):
+        command += ["--cookies", COOKIES_FILE]
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return jsonify({"formats": result.stdout})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": "Failed to fetch formats", "details": e.stderr}), 500
+
+
+if __name__ == '__main__':
     app.run(debug=True)

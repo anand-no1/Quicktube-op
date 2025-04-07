@@ -1,13 +1,11 @@
 services:
   - type: web
     name: quicktube-backend
-    env: python
-    plan: free
+    runtime: python
     buildCommand: |
       apt-get update && apt-get install -y ffmpeg
       pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
-      - key: PYTHONUNBUFFERED
-        value: "1"
-    autoDeploy: true
+      - key: PORT
+        value: 10000
