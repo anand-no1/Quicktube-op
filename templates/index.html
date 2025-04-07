@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>QuickTube</title>
+  <link rel="icon" href="/static/logo.png" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #00ffff;
+      font-family: 'Poppins', sans-serif;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    body {
+      text-align: center;
+    }
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: -1;
+    }
+
+    .logo-img {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin-top: 30px;
+      box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.4);
+      animation: glow 3s infinite alternate;
+    }
+
+    @keyframes glow {
+      0% { box-shadow: 0 0 10px red; }
+      25% { box-shadow: 0 0 10px orange; }
+      50% { box-shadow: 0 0 10px yellow; }
+      75% { box-shadow: 0 0 10px green; }
+      100% { box-shadow: 0 0 10px blue; }
+    }
+
+    h1 {
+      margin-top: 10px;
+      font-size: 3em;
+      background: linear-gradient(to right, red, orange, yellow, green, blue, violet);
+      -webkit-background-clip: text;
+      color: white;
+      animation: glow-text 2s infinite alternate;
+    }
+
+    @keyframes glow-text {
+      from { text-shadow: 0 0 5px #fff; }
+      to { text-shadow: 0 0 20px #00ffff; }
+    }
+
+    .subtitle {
+      font-size: 1.2em;
+      margin-bottom: 30px;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 15px;
+      border: 2px solid #00ffff;
+      background: transparent;
+      color: white;
+      font-size: 1em;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .button, .quality-button {
+      background: transparent;
+      border: 2px solid #00ffff;
+      color: #00ffff;
+      padding: 10px 20px;
+      margin: 10px 5px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s ease;
+      font-size: 1em;
+    }
+
+    .button:hover, .quality-button:hover {
+      background-color: #00ffff;
+      color: #000;
+    }
+
+    #message {
+      color: red;
+      margin-top: 10px;
+    }
+
+    #download-now {
+      margin-top: 20px;
+      background: #00ffcc;
+      color: black;
+      border-color: #00ffcc;
+    }
+
+    footer {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      color: #aaa;
+      font-size: 0.9em;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <img src="/static/logo.png" alt="logo" class="logo-img" />
+  <h1>Anand GT</h1>
+  <div class="subtitle">Created by Anand</div>
+  <div class="subtitle">QuickTube</div>
+
+  <input type="text" id="urlInput" placeholder="Paste YouTube or Facebook link here" />
+
+  <div>
+    <button class="button" onclick="showMP4Options()">MP4</button>
+    <button class="button" onclick="setFormat('mp3')">MP3</button>
+  </div>
+
+  <div id="mp4Options" style="display:none;">
+    <button class="quality-button" onclick="setFormat('144p')">144p</button>
+    <button class="quality-button" onclick="setFormat('240p')">240p</button>
+    <button class="quality-button" onclick="setFormat('360p')">360p</button>
+    <button class="quality-button" onclick="setFormat('480p')">480p</button>
+    <button class="quality-button" onclick="setFormat('720p')">720p</button>
+  </div>
+
+  <div>
+    <button class="button" onclick="prepareDownload()">Prepare Download</button>
+  </div>
+
+  <div id="download-now-container" style="display:none;">
+    <button class="button" id="download-now">Download Now</button>
+  </div>
+
+  <div id="message"></div>
+
+  <footer>Copyright © 2025 Anand. All rights reserved.</footer>
+
+  <canvas id="particle-canvas"></canvas>
+
+  <script>
+    let selectedFormat = "";
+    let fileURL = "";
+
+    function showMP4Options() {
+      document.getElementById('mp4Options').style.display = 'block';
+    }
+
+    function setFormat(format) {
+      selectedFormat = format;
+      document.getElementById('message').innerText = "Selected: " + format;
+    }
+
+    function prepareDownload() {
+      const url = document.getElementById('urlInput').value;
+      const msg = document.getElementById('message');
+      const downloadBtn = document.getElementById('download-now-container');
+
+      if (!url || !selectedFormat) {
+        msg.innerText = "Please paste a URL and select a format.";
+        return;
+      }
+
+      msg.innerText = "Preparing download...";
+
+      fetch('/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url, format: selectedFormat })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Download failed");
+          }
+          return response.blob();
+        })
+        .then(blob => {
+          fileURL = URL.createObjectURL(blob);
+          downloadBtn.style.display = 'block';
+          msg.innerText = "Ready! Tap 'Download Now'.";
+        })
+        .catch(err => {
+          msg.innerText = "Error: " + err.message;
+        });
+    }
+
+    document.getElementById('download-now').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = fileURL;
+      a.download = "quicktube_download";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+
+    // Falling particles
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    function Particle() {
+      this.x = Math.random() * canvas.width;
+      this.y = Math.random() * canvas.height;
+      this.radius = Math.random() * 2 + 1;
+      this.speed = Math.random() * 1 + 0.5;
+    }
+
+    Particle.prototype.update = function () {
+      this.y += this.speed;
+      if (this.y > canvas.height) {
+        this.y = 0;
+        this.x = Math.random() * canvas.width;
+      }
+    };
+
+    Particle.prototype.draw = function () {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+    };
+
+    function createParticles(num) {
+      for (let i = 0; i < num; i++) {
+        particles.push(new Particle());
+      }
+    }
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      requestAnimationFrame(animateParticles);
+    }
+
+    createParticles(100);
+    animateParticles();
+  </script>
+</body>
+</html>
