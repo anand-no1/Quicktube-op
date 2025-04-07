@@ -9,6 +9,9 @@ DOWNLOAD_DIR = "downloads"
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
+# Path to cookies.txt (make sure it's inside the same folder as this script or project root)
+cookies_path = os.path.join(os.path.dirname(__file__), "cookies.txt")
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -28,15 +31,15 @@ def download_video():
     ydl_opts = {
         "outtmpl": output_path,
         "quiet": True,
-        "format": "bestaudio/best",
+        "cookiefile": cookies_path,  # Use cookies to bypass login restrictions
         "noplaylist": True,
         "merge_output_format": "mp3" if format_type == "mp3" else "mp4",
-        "cookiefile": "cookies.txt",
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",  # optional, avoids bot detection
     }
 
-    if format_type.endswith("p"):  # For MP4 resolution
+    if format_type.endswith("p"):  # e.g., 720p, 360p
         ydl_opts["format"] = f"bestvideo[height<={format_type[:-1]}]+bestaudio/best"
+    else:
+        ydl_opts["format"] = "bestaudio/best"
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
