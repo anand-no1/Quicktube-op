@@ -31,6 +31,8 @@ def download_video():
         "format": "bestaudio/best",
         "noplaylist": True,
         "merge_output_format": "mp3" if format_type == "mp3" else "mp4",
+        "cookiefile": "cookies.txt",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",  # optional, avoids bot detection
     }
 
     if format_type.endswith("p"):  # For MP4 resolution
